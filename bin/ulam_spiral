@@ -1,0 +1,62 @@
+#! /usr/bin/env ruby
+
+require 'prime'
+require 'zlib'
+
+def chunk(type, data)
+  [data.bytesize, type, data, Zlib.crc32(type + data)].pack("NA4A*N")
+end
+
+def ulam_spiral(width, height)
+  white, red = [255, 255, 255], [255, 0, 0]
+  length = [width, height].max
+  x, y = length / 2, length / 2
+
+  count = length ** 2
+  pixels = Array.new(length) { [] }
+
+  pixels[y][x] = white
+  dx, dy = 1, 0
+  i = n = 1
+  while count >= 0
+    2.times do
+      n.times do
+        x, y = x + dx, y + dy
+        if (0...length).cover?(x) && (0...length).cover?(y)
+          pixels[y][x] = i.prime? ? red : white
+        end
+        i += 1
+        count -= 1
+      end
+      dx, dy = dy, -dx
+    end
+    n += 1
+  end
+  if width < length
+    a = (length - width) / 2
+    pixels.map! {|line| line[a, width] }
+  elsif height < length
+    a = (length - height) / 2
+    pixels = pixels[a, height]
+  end
+  pixels
+end
+
+width = ARGV.shift.to_i
+height = ARGV.shift.to_i
+depth = 8
+color_type = 2
+
+# File signature
+print "\x89PNG\r\n\x1a\n"
+
+# Header
+print chunk("IHDR", [width, height, depth, color_type, 0, 0, 0].pack("NNCCCCC"))
+
+# Image data
+raw_data = ulam_spiral(width, height)
+image_data = raw_data.map {|line| ([0] + line.flatten).pack("C*") }.join
+print chunk("IDAT", Zlib::Deflate.deflate(image_data))
+
+# Tail
+print chunk("IEND", '')
